@@ -3,10 +3,15 @@ modules:
     - key: space-admins
       resource: main
       render: native
+      resolver:
+        function: resolver
       title: Space Admins
       description: Lists the administrators of the current space, with links to their
         profiles.
       category: data-and-charts
+  function:
+    - key: resolver
+      handler: index.handler
 resources:
   - key: main
     path: src/frontend/index.jsx

@@ -10,11 +10,11 @@ On Data Center, user macros are Velocity templates, and the Velocity context onl
 
 ## What changes in Forge
 
-**Data access becomes an API call.** There's no container to reach into. The macro calls `GET /wiki/api/v2/spaces/{id}/permissions`, keeps the assignments where the operation is `administer` on the space, and follows `_links.next` until it has every page. Admin groups come back as IDs, so a second call turns each one into a name.
+**Data access becomes an API call.** There's no container to reach into, and the call lives in a small backend function (a resolver) rather than the page itself — my first version called the API straight from the frontend and got a 403 even as a site admin, which is a known rough edge. The macro calls `GET /wiki/api/v2/spaces/{id}/permissions`, keeps the assignments where the operation is `administer` on the space, and follows `_links.next` until it has every page. Admin groups come back as IDs, so a second call turns each one into a name. Some admins aren't people or groups at all: Cloud returns built-in "access classes" such as all Confluence admins, which the old macro never had to think about.
 
 **Permissions become explicit.** A Forge app declares its scopes in the manifest, and the site admin approves them at install. This one needs two, both read-only: one for space permissions, one for group names. Writing that list down is a useful exercise in itself — the old macro could touch anything, and nobody had ever had to say what it actually needed.
 
-**It runs as the viewer, not the server.** `requestConfluence` calls the API as the person looking at the page. That's the biggest behavioral change, and it's a good one: if a reader can't see the space's permissions in Confluence, they can't see them through the macro either. It also means the "no permission" case is real and has to be designed for. The old macro never had that problem, because it never asked.
+**It runs as the viewer, not the server.** The app's resolver calls the API with `api.asUser()`, as the person looking at the page. That's the biggest behavioral change, and it's a good one: if a reader can't see the space's permissions in Confluence, they can't see them through the macro either. It also means the "no permission" case is real and has to be designed for. The old macro never had that problem, because it never asked.
 
 **Rendering becomes components.** Instead of hand-built HTML, the macro uses UI Kit. The `User` component renders each admin as a profile card from just an account ID, and it applies each user's own privacy settings, so there's no user lookup to write and no extra scope to request.
 

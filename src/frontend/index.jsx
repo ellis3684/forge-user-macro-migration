@@ -1,39 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import ForgeReconciler, {
-  Heading,
-  SectionMessage,
-  Spinner,
-  Stack,
-  Text,
-  User,
-  useProductContext,
-} from '@forge/react';
-import { requestConfluence } from '@forge/bridge';
-import { ConfluenceError, describeError, loadSpaceAdmins } from './admins';
-
-// requestConfluence calls the REST API *as the person viewing the page*, so a
-// viewer only ever sees what Confluence already lets them see.
-async function fetchJson(path) {
-  const response = await requestConfluence(path, { headers: { Accept: 'application/json' } });
-  if (!response.ok) throw new ConfluenceError(response.status, `${response.status} on ${path}`);
-  return response.json();
-}
+import ForgeReconciler, { Heading, SectionMessage, Spinner, Stack, Text, User } from '@forge/react';
+import { invoke } from '@forge/bridge';
 
 const App = () => {
-  const context = useProductContext();
-  const spaceId = context?.extension?.space?.id;
   const [state, setState] = useState({ status: 'loading' });
 
   useEffect(() => {
-    if (!context) return; // context arrives asynchronously
     let cancelled = false;
-    loadSpaceAdmins(spaceId, fetchJson)
-      .then((admins) => !cancelled && setState({ status: 'ready', ...admins }))
-      .catch((error) => !cancelled && setState({ status: 'error', message: describeError(error) }));
+    invoke('getSpaceAdmins')
+      .then((result) => {
+        if (cancelled) return;
+        setState(
+          result.ok
+            ? { status: 'ready', userIds: result.userIds, groups: result.groups, accessClasses: result.accessClasses }
+            : { status: 'error', message: result.message, httpStatus: result.status },
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: 'error', message: "Couldn't load the space admins right now. Try refreshing the page." });
+      });
     return () => {
       cancelled = true;
     };
-  }, [context, spaceId]);
+  }, []);
 
   if (state.status === 'loading') return <Spinner label="Loading space admins" />;
 
@@ -41,12 +30,15 @@ const App = () => {
     return (
       <SectionMessage appearance="warning" title="Space admins unavailable">
         <Text>{state.message}</Text>
+        {state.httpStatus ? <Text>(HTTP {state.httpStatus})</Text> : null}
       </SectionMessage>
     );
   }
 
-  const { userIds, groups } = state;
-  if (userIds.length === 0 && groups.length === 0) {
+  const { userIds, groups, accessClasses } = state;
+  const others = [...groups.map((g) => g.name), ...accessClasses];
+
+  if (userIds.length === 0 && others.length === 0) {
     return <Text>No administrators are listed for this space.</Text>;
   }
 
@@ -56,9 +48,7 @@ const App = () => {
       {userIds.map((accountId) => (
         <User key={accountId} accountId={accountId} />
       ))}
-      {groups.length > 0 && (
-        <Text>Also administered by group{groups.length > 1 ? 's' : ''}: {groups.map((g) => g.name).join(', ')}</Text>
-      )}
+      {others.length > 0 && <Text>Also administered by: {others.join(', ')}</Text>}
     </Stack>
   );
 };

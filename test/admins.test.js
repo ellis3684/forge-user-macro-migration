@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ConfluenceError, describeError, loadSpaceAdmins } from '../src/frontend/admins.js';
+import { accessClassLabel, ConfluenceError, describeError, loadSpaceAdmins } from '../src/lib/admins.js';
 
 const admin = (type, id) => ({ principal: { type, id }, operation: { key: 'administer', targetType: 'space' } });
 const other = (type, id, key = 'read') => ({ principal: { type, id }, operation: { key, targetType: 'space' } });
@@ -29,6 +29,24 @@ test('keeps only space-level administer assignments and de-duplicates users', as
   const result = await loadSpaceAdmins('42', fetchJson);
   assert.deepEqual(result.userIds, ['u1', 'u3']);
   assert.deepEqual(result.groups, []);
+  assert.deepEqual(result.accessClasses, []);
+});
+
+test('reports built-in access classes that hold admin', async () => {
+  // Shape captured from a real Confluence Cloud site.
+  const { fetchJson } = stub({
+    '/wiki/api/v2/spaces/42/permissions': {
+      results: [admin('user', 'u1'), admin('access-class', 'ALL_PRODUCT_ADMINS'), other('access-class', 'ALL_LICENSED_USERS', 'delete')],
+      _links: {},
+    },
+  });
+  const result = await loadSpaceAdmins('42', fetchJson);
+  assert.deepEqual(result.userIds, ['u1']);
+  assert.deepEqual(result.accessClasses, ['Confluence admins']);
+});
+
+test('labels unknown access classes readably', () => {
+  assert.equal(accessClassLabel('SOME_NEW_CLASS'), 'Some new class');
 });
 
 test('follows _links.next across pages', async () => {

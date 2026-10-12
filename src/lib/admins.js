@@ -1,9 +1,23 @@
 // Pure data logic for the Space Admins macro, kept free of Forge imports so it
 // can be unit-tested with plain Node. `fetchJson(path)` is injected: in the app
-// it wraps requestConfluence (runs as the viewing user); in tests it's a stub.
+// it wraps api.asUser().requestConfluence (runs as the viewing user); in tests
+// it's a stub.
 
 const ADMIN_OPERATION = { key: 'administer', targetType: 'space' };
 const MAX_PAGES = 20; // 20 x 250 assignments — a guard, not an expected size
+
+// Built-in principals Confluence uses alongside users and groups.
+const ACCESS_CLASS_LABELS = {
+  ALL_PRODUCT_ADMINS: 'Confluence admins',
+  ALL_LICENSED_USERS: 'All licensed users',
+  ANONYMOUS_USERS: 'Anonymous users',
+};
+
+export function accessClassLabel(id) {
+  if (ACCESS_CLASS_LABELS[id]) return ACCESS_CLASS_LABELS[id];
+  const words = String(id).toLowerCase().split('_').filter(Boolean);
+  return words.map((w, i) => (i === 0 ? w[0].toUpperCase() + w.slice(1) : w)).join(' ');
+}
 
 export class ConfluenceError extends Error {
   constructor(status, message) {
@@ -18,12 +32,14 @@ export function isSpaceAdminAssignment(assignment) {
 }
 
 // Walks every page of /wiki/api/v2/spaces/{id}/permissions and returns the
-// admin principals, de-duplicated and split into users and groups.
+// admin principals, de-duplicated and split into users, groups, and built-in
+// access classes (e.g. "all Confluence admins").
 export async function loadSpaceAdmins(spaceId, fetchJson) {
   if (!spaceId) throw new ConfluenceError(400, 'This macro only works on a page inside a space.');
 
   const userIds = new Set();
   const groupIds = new Set();
+  const accessClassIds = new Set();
   let path = `/wiki/api/v2/spaces/${encodeURIComponent(spaceId)}/permissions?limit=250`;
 
   for (let page = 0; path && page < MAX_PAGES; page += 1) {
@@ -33,6 +49,7 @@ export async function loadSpaceAdmins(spaceId, fetchJson) {
       const { type, id } = assignment.principal ?? {};
       if (type === 'user' && id) userIds.add(id);
       if (type === 'group' && id) groupIds.add(id);
+      if (type === 'access-class' && id) accessClassIds.add(id);
     }
     path = body._links?.next ?? null;
   }
@@ -51,7 +68,8 @@ export async function loadSpaceAdmins(spaceId, fetchJson) {
 
   // Named groups alphabetically, unresolved ones last.
   groups.sort((a, b) => (b.resolved - a.resolved) || a.name.localeCompare(b.name));
-  return { userIds: [...userIds], groups };
+  const accessClasses = [...accessClassIds].map(accessClassLabel).sort();
+  return { userIds: [...userIds], groups, accessClasses };
 }
 
 // Maps an HTTP failure to something a page reader can act on.
