@@ -1,0 +1,21 @@
+modules:
+  macro:
+    - key: space-admins
+      resource: main
+      render: native
+      title: Space Admins
+      description: Lists the administrators of the current space, with links to their profiles.
+      category: reporting
+resources:
+  - key: main
+    path: src/frontend/index.jsx
+permissions:
+  scopes:
+    # GET /wiki/api/v2/spaces/{id}/permissions — who holds which permission in the space
+    - read:space.permission:confluence
+    # GET /wiki/rest/api/group/by-id — turn a group principal's id into its name
+    - read:confluence-groups
+app:
+  runtime:
+    name: nodejs22.x
+  # `id` is added by `forge register` (see scripts/setup.sh)

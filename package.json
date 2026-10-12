@@ -1,0 +1,16 @@
+{
+  "name": "forge-space-admins-macro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Confluence Data Center user macro rebuilt as an Atlassian Forge (UI Kit) macro.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "lint": "forge lint",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@forge/bridge": "^7.2.0",
+    "@forge/react": "^12.3.1",
+    "react": "^18.2.0"
+  }
+}

@@ -1,0 +1,36 @@
+## Confluence Data Center user macro: "space-admins"
+## Macro body processing: No macro body
+## Output format: HTML
+##
+## A representative example of the pattern this repo migrates. Admins on Data
+## Center wrote macros like this to reach Java services that the user-macro
+## Velocity context doesn't expose, by pulling them out of the Spring container
+## with reflection. It ran with server-side access to the permission system.
+##
+## @noparams
+
+#set($containerManagerClass = $content.class.forName('com.atlassian.spring.container.ContainerManager'))
+#set($getInstanceMethod = $containerManagerClass.getDeclaredMethod('getInstance', null))
+#set($containerManager = $getInstanceMethod.invoke(null, null))
+#set($containerContext = $containerManager.containerContext)
+#set($spacePermissionManager = $containerContext.getComponent('spacePermissionManager'))
+
+#set($admins = [])
+#foreach($permission in $spacePermissionManager.getAllPermissionsForSpace($space))
+  #if($permission.type == "SETSPACEPERMISSIONS" && $permission.isUserPermission())
+    #set($added = $admins.add($permission.userSubject))
+  #end
+#end
+
+<div class="space-admins">
+  <h4>Space admins</h4>
+  #if($admins.isEmpty())
+    <p>No administrators are listed for this space.</p>
+  #else
+    <ul>
+    #foreach($admin in $admins)
+      <li><a href="$req.contextPath/display/~$generalUtil.urlEncode($admin.name)">$generalUtil.htmlEncode($admin.fullName)</a></li>
+    #end
+    </ul>
+  #end
+</div>
