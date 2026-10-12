@@ -7,3 +7,6 @@ node_modules/
 .forge/
 *.log
 .DS_Store
+
+# Local marketing assets (not part of the app)
+.marketing/
