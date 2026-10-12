@@ -1,13 +1,22 @@
 import Resolver from '@forge/resolver';
-import api, { assumeTrustedRoute } from '@forge/api';
+import api, { assumeTrustedRoute, route } from '@forge/api';
 import { ConfluenceError, describeError, loadSpaceAdmins } from './lib/admins';
+
+// Known endpoints are written as `route` template literals so `forge lint`
+// can match them against Atlassian's API spec and check the manifest scopes.
+// Anything else is a `_links.next` cursor returned by Confluence itself.
+function toRoute(path) {
+  const permissions = /^\/wiki\/api\/v2\/spaces\/([^/?]+)\/permissions\?limit=250$/.exec(path);
+  if (permissions) return route`/wiki/api/v2/spaces/${decodeURIComponent(permissions[1])}/permissions?limit=250`;
+  const group = /^\/wiki\/rest\/api\/group\/by-id\?id=(.+)$/.exec(path);
+  if (group) return route`/wiki/rest/api/group/by-id?id=${decodeURIComponent(group[1])}`;
+  return assumeTrustedRoute(path);
+}
 
 // Calls the Confluence REST API *as the person viewing the page*, so a viewer
 // only ever sees what Confluence already lets them see.
-// assumeTrustedRoute: every path is either built in lib/admins.js (with
-// encoded ids) or is a `_links.next` cursor returned by Confluence itself.
 async function fetchJson(path) {
-  const response = await api.asUser().requestConfluence(assumeTrustedRoute(path), {
+  const response = await api.asUser().requestConfluence(toRoute(path), {
     headers: { Accept: 'application/json' },
   });
   if (!response.ok) {

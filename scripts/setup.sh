@@ -30,6 +30,9 @@ if ! grep -qE '^\s+id:\s' manifest.yml; then
   forge register "Space Admins Macro"
 fi
 
+# --fix adds any scopes the code needs that the manifest is missing
+# (it checks API calls against Atlassian's published API specs).
+forge lint --fix
 forge lint
 forge deploy --environment development --non-interactive
 
