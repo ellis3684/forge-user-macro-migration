@@ -10,3 +10,4 @@ node_modules/
 
 # Local marketing assets (not part of the app)
 .marketing/
+HANDOFF.md
