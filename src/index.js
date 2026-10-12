@@ -25,8 +25,13 @@ resolver.define('getSpaceAdmins', async ({ context }) => {
     const admins = await loadSpaceAdmins(context?.extension?.space?.id, fetchJson);
     return { ok: true, ...admins };
   } catch (error) {
+    // Anything that isn't a Confluence HTTP failure belongs to the Forge
+    // platform — most importantly NeedsAuthenticationError, thrown the first
+    // time a user views the macro. It must propagate so Forge can show its
+    // "Allow access" consent prompt; swallowing it shows a bogus 401 instead.
+    if (!(error instanceof ConfluenceError)) throw error;
     console.error('getSpaceAdmins failed', error);
-    return { ok: false, status: error?.status ?? null, message: describeError(error) };
+    return { ok: false, status: error.status ?? null, message: describeError(error) };
   }
 });
 
