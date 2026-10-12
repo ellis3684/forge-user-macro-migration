@@ -17,8 +17,8 @@ resources:
     path: src/frontend/index.jsx
 permissions:
   scopes:
-    # GET /wiki/api/v2/spaces/{id}/permissions — who holds which permission in the space
-    - read:space.permission:confluence
+    # GET /wiki/api/v2/spaces/{id}/permissions (per Atlassian's v2 OpenAPI spec)
+    - read:space:confluence
     # GET /wiki/rest/api/group/by-id — turn a group principal's id into its name
     - read:confluence-groups
 app:

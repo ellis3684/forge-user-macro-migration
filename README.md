@@ -26,7 +26,7 @@ This macro is the hard kind. On Data Center it reached into Confluence's Java in
 
 | Scope | Why it's needed |
 |---|---|
-| `read:space.permission:confluence` | Read who holds which permission in the space, to find the `administer` assignments. |
+| `read:space:confluence` | Read the space's permission assignments, to find the `administer` entries. This is the scope Atlassian's v2 API spec lists for `GET /spaces/{id}/permissions` — not the similarly named `read:space.permission:confluence`, which covers the newer role-assignment endpoints. |
 | `read:confluence-groups` | Turn an admin group's ID into its name. |
 
 Both are read-only. User names and avatars come from the UI Kit `User` component, which respects each person's profile privacy settings and needs no extra scope.
