@@ -5,6 +5,7 @@
 
 const ADMIN_OPERATION = { key: 'administer', targetType: 'space' };
 const MAX_PAGES = 20; // 20 x 250 assignments — a guard, not an expected size
+const USER_LOOKUP_BATCH = 100; // /wiki/rest/api/user/bulk returns at most 100
 
 // Built-in principals Confluence uses alongside users and groups.
 const ACCESS_CLASS_LABELS = {
@@ -69,7 +70,35 @@ export async function loadSpaceAdmins(spaceId, fetchJson) {
   // Named groups alphabetically, unresolved ones last.
   groups.sort((a, b) => (b.resolved - a.resolved) || a.name.localeCompare(b.name));
   const accessClasses = [...accessClassIds].map(accessClassLabel).sort();
-  return { userIds: [...userIds], groups, accessClasses };
+  const { people, apps } = await splitPeopleFromApps([...userIds], fetchJson);
+  return { userIds: people, apps, groups, accessClasses };
+}
+
+// Confluence makes some apps' bot accounts (e.g. chat integrations) space
+// admins. They're real admins, but readers looking for "who do I ask?" want
+// people, so apps are reported separately. If the lookup fails, everyone is
+// treated as a person: better to show a bot than to hide a human.
+export async function splitPeopleFromApps(accountIds, fetchJson) {
+  const people = [];
+  const apps = [];
+  for (let i = 0; i < accountIds.length; i += USER_LOOKUP_BATCH) {
+    const batch = accountIds.slice(i, i + USER_LOOKUP_BATCH);
+    const query = batch.map((id) => `accountId=${encodeURIComponent(id)}`).join('&');
+    let byId = new Map();
+    try {
+      const body = await fetchJson(`/wiki/rest/api/user/bulk?${query}`);
+      byId = new Map((body.results ?? []).map((user) => [user.accountId, user]));
+    } catch {
+      // fall through with an empty map
+    }
+    for (const id of batch) {
+      const user = byId.get(id);
+      if (user?.accountType === 'app') apps.push(user.displayName || 'Unnamed app');
+      else people.push(id);
+    }
+  }
+  apps.sort((a, b) => a.localeCompare(b));
+  return { people, apps };
 }
 
 // Maps an HTTP failure to something a page reader can act on.

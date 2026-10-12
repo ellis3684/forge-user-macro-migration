@@ -12,7 +12,7 @@ const App = () => {
         if (cancelled) return;
         setState(
           result.ok
-            ? { status: 'ready', userIds: result.userIds, groups: result.groups, accessClasses: result.accessClasses }
+            ? { status: 'ready', userIds: result.userIds, apps: result.apps, groups: result.groups, accessClasses: result.accessClasses }
             : { status: 'error', message: result.message, httpStatus: result.status },
         );
       })
@@ -35,10 +35,10 @@ const App = () => {
     );
   }
 
-  const { userIds, groups, accessClasses } = state;
+  const { userIds, apps, groups, accessClasses } = state;
   const others = [...groups.map((g) => g.name), ...accessClasses];
 
-  if (userIds.length === 0 && others.length === 0) {
+  if (userIds.length === 0 && others.length === 0 && apps.length === 0) {
     return <Text>No administrators are listed for this space.</Text>;
   }
 
@@ -49,6 +49,7 @@ const App = () => {
         <User key={accountId} accountId={accountId} />
       ))}
       {others.length > 0 && <Text>Also administered by: {others.join(', ')}</Text>}
+      {apps.length > 0 && <Text>Apps with admin access: {apps.join(', ')}</Text>}
     </Stack>
   );
 };

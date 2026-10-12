@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { accessClassLabel, ConfluenceError, describeError, loadSpaceAdmins } from '../src/lib/admins.js';
+import { accessClassLabel, ConfluenceError, describeError, loadSpaceAdmins, splitPeopleFromApps } from '../src/lib/admins.js';
 
 const admin = (type, id) => ({ principal: { type, id }, operation: { key: 'administer', targetType: 'space' } });
 const other = (type, id, key = 'read') => ({ principal: { type, id }, operation: { key, targetType: 'space' } });
@@ -56,7 +56,7 @@ test('follows _links.next across pages', async () => {
   });
   const result = await loadSpaceAdmins('42', fetchJson);
   assert.deepEqual(result.userIds, ['u1', 'u2']);
-  assert.equal(calls.length, 2);
+  assert.equal(calls.filter((c) => c.includes('/permissions')).length, 2);
 });
 
 test('resolves admin group names, sorted, and survives a failed lookup', async () => {
@@ -79,4 +79,35 @@ test('maps HTTP failures to readable messages', () => {
   assert.match(describeError(new ConfluenceError(404, 'x')), /couldn't be found/);
   assert.match(describeError(new ConfluenceError(500, 'x')), /Try refreshing/);
   assert.match(describeError(new Error('network')), /Try refreshing/);
+});
+
+test('reports app accounts separately from people', async () => {
+  // Shape captured from a real Confluence Cloud site.
+  const { fetchJson } = stub({
+    '/wiki/api/v2/spaces/42/permissions': { results: [admin('user', 'p1'), admin('user', 'bot1'), admin('user', 'bot2')], _links: {} },
+    '/wiki/rest/api/user/bulk?': {
+      results: [
+        { accountId: 'bot2', accountType: 'app', displayName: 'Microsoft Teams for Confluence Cloud' },
+        { accountId: 'p1', accountType: 'atlassian', displayName: 'Corey Ellis' },
+        { accountId: 'bot1', accountType: 'app', displayName: 'Chat Notifications' },
+      ],
+    },
+  });
+  const result = await loadSpaceAdmins('42', fetchJson);
+  assert.deepEqual(result.userIds, ['p1']);
+  assert.deepEqual(result.apps, ['Chat Notifications', 'Microsoft Teams for Confluence Cloud']);
+});
+
+test('keeps everyone as a person if the user lookup fails', async () => {
+  const { fetchJson } = stub({ '/wiki/rest/api/user/bulk?': new ConfluenceError(403, 'nope') });
+  const result = await splitPeopleFromApps(['a', 'b'], fetchJson);
+  assert.deepEqual(result, { people: ['a', 'b'], apps: [] });
+});
+
+test('looks users up in batches of 100', async () => {
+  const ids = Array.from({ length: 205 }, (_, i) => `u${i}`);
+  const { fetchJson, calls } = stub({ '/wiki/rest/api/user/bulk?': { results: [] } });
+  const result = await splitPeopleFromApps(ids, fetchJson);
+  assert.equal(calls.length, 3);
+  assert.equal(result.people.length, 205);
 });

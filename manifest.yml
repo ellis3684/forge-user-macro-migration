@@ -21,6 +21,8 @@ permissions:
     - read:space:confluence
     # GET /wiki/rest/api/group/by-id — turn a group principal's id into its name
     - read:confluence-groups
+    # GET /wiki/rest/api/user/bulk — tell people apart from app (bot) accounts
+    - read:confluence-user
 app:
   runtime:
     name: nodejs22.x
